@@ -16,7 +16,7 @@ public class BSBIIndexer {
 		long chunkSize = 20_000_000L; // read 20 MB at a time
 		long usedSize = 0;
 		String chunk = "";
-		String folderPath = "D:\\JavaFiles\\_IR\\PW5\\Texts\\temp";
+		String folderPath = "//Applications/NaUKMA/Practice/temp";
 		List<File> files = listTxtFiles(new File(folderPath));
 
 		for (File file : files) {
@@ -65,7 +65,7 @@ public class BSBIIndexer {
 
 	private static void mergeIndex() throws IOException {
 		index = new TreeMap<>();
-		String folderPath = "D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate";
+		String folderPath = "//Applications/NaUKMA/Practice/Separate";
 		List<File> files = listTxtFiles(new File(folderPath));
 
 		for (File file : files) {
@@ -98,7 +98,7 @@ public class BSBIIndexer {
 			reader.close();
 		}
 
-		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\BigIndex.txt");
+		File fileInp = new File("//Applications/NaUKMA/Practice/Separate/BigIndex.txt");
 		FileWriter fileInpPostingList = new FileWriter(fileInp);
 		for (String key : index.keySet()) {
 			int count = 1;
@@ -119,7 +119,7 @@ public class BSBIIndexer {
 	}
 
 	private static void writeChunkInFile() throws IOException {
-		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\" + fileName++ + ".txt");
+		File fileInp = new File("//Applications/NaUKMA/Practice/Separate/" + fileName++ + ".txt");
 		FileWriter fileInpPostingList = new FileWriter(fileInp);
 
 		for (String key : index.keySet()) {
@@ -140,7 +140,7 @@ public class BSBIIndexer {
 	}
 
 	private static void writeDocumentsIdInFile() throws IOException {
-		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\" + "DocumentsID.txt");
+		File fileInp = new File("//Applications/NaUKMA/Practice/Separate/" + "DocumentsID.txt");
 		FileWriter fileInpPostingList = new FileWriter(fileInp);
 
 		for (String key : docID.keySet()) {
