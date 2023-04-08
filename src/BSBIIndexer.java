@@ -5,18 +5,18 @@ public class BSBIIndexer {
 
 	public static TreeMap<String, ArrayList<Integer>> index = new TreeMap<>();
 	public static ArrayList<Integer> tempID = new ArrayList<>();
-
 	public static int countHash_doc = 0;
 	public static HashMap<String, Integer> docID = new HashMap<>();
-
 	public static int fileName = 0;
 
 	public static void main(String[] args) throws IOException {
+		// delete all previous files
+		Arrays.stream(new File("//Applications/NaUKMA/Practice/Separate/").listFiles()).forEach(File::delete);
 		long startTime = System.currentTimeMillis();
 		long chunkSize = 20_000_000L; // read 20 MB at a time
 		long usedSize = 0;
 		String chunk = "";
-		String folderPath = "//Applications/NaUKMA/Practice/temp";
+		String folderPath = "//Applications/NaUKMA/Practice/texts";  //txt files to invert
 		List<File> files = listTxtFiles(new File(folderPath));
 
 		for (File file : files) {
@@ -24,22 +24,20 @@ public class BSBIIndexer {
 
 			if (usedSize + file.length() < chunkSize) {
 				System.out.println(file.getAbsolutePath());
-
-
-				chunk = readFile(file.getAbsolutePath());
+				chunk = readFromFile(file);
+				System.out.println("Reading file");
 				usedSize += file.length();
-				System.out.println((double) usedSize / 1_000_000);
+				System.out.println(usedSize + " bytes ");
 				buildIndex(docID.get(file.getAbsolutePath()), chunk);
 			} else {
 				if (chunk != null) {
 					writeChunkInFile();
 					System.out.println("Document created!");
-					index = new TreeMap<>();
-					tempID = new ArrayList<>();
+					index.clear();
+					tempID.clear();
 					usedSize = 0;
-
 					// Зберегти проміжний файл
-					chunk = readFile(file.getAbsolutePath());
+					chunk = readFromFile(file);
 					usedSize += file.length();
 					buildIndex(docID.get(file.getAbsolutePath()), chunk);
 				}
@@ -59,8 +57,28 @@ public class BSBIIndexer {
 		endTime = System.currentTimeMillis();
 		totalTimeInSeconds = (endTime - startTime) / 1000;
 		System.out.println("Total time taken by the code for PART_2: " + totalTimeInSeconds + " seconds");
-
 		writeDocumentsIdInFile();
+	}
+
+	private static String readFromFile(File file) throws IOException {
+		StringBuilder sb = new StringBuilder();
+		BufferedReader br = new BufferedReader(new FileReader(file));
+		try {
+			String tempString;
+			while ((tempString = br.readLine()) != null) {
+				sb.append(tempString);
+			}
+			try {
+				br.close();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (RuntimeException e) {
+			throw new RuntimeException(e);
+		}
+		return sb.toString();
 	}
 
 	private static void mergeIndex() throws IOException {
@@ -119,24 +137,26 @@ public class BSBIIndexer {
 	}
 
 	private static void writeChunkInFile() throws IOException {
-		File fileInp = new File("//Applications/NaUKMA/Practice/Separate/" + fileName++ + ".txt");
-		FileWriter fileInpPostingList = new FileWriter(fileInp);
+		if (!index.isEmpty()) {
+			File fileInp = new File("//Applications/NaUKMA/Practice/Separate/" + fileName++ + ".txt");
+			FileWriter fileInpPostingList = new FileWriter(fileInp);
 
-		for (String key : index.keySet()) {
-			int count = 1;
-			String tmp;
-			List<Integer> delete = index.get(key);
-			tmp = key + ":";
-			for (Integer b : delete) {
-				if (count++ == 1) {
-					tmp += b;
-					continue;
+			for (String key : index.keySet()) {
+				int count = 1;
+				String tmp;
+				List<Integer> delete = index.get(key);
+				tmp = key + ":";
+				for (Integer b : delete) {
+					if (count++ == 1) {
+						tmp += b;
+						continue;
+					}
+					tmp += "," + b;
 				}
-				tmp += "," + b;
+				fileInpPostingList.write(tmp + "\n");
 			}
-			fileInpPostingList.write(tmp + "\n");
+			fileInpPostingList.close();
 		}
-		fileInpPostingList.close();
 	}
 
 	private static void writeDocumentsIdInFile() throws IOException {
