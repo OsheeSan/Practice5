@@ -2,157 +2,203 @@ import java.io.*;
 import java.util.*;
 
 public class BSBIIndexer {
-	private static final int BLOCK_SIZE = 1000; // розмір блоку
-	private static final String TEMP_DIR = "temp/"; // директорія для тимчасових файлів
 
-	public void buildIndex(String documentsDir, String indexFile) throws IOException {
-		File dir = new File(documentsDir);
-		File[] files = dir.listFiles();
-		Arrays.sort(files); // сортуємо документи за іменем
-		int numBlocks = (int) Math.ceil((double) files.length / BLOCK_SIZE); // обчислюємо кількість блоків
+	public static TreeMap<String, ArrayList<Integer>> index = new TreeMap<>();
+	public static ArrayList<Integer> tempID = new ArrayList<>();
 
-		// для кожного блоку
-		for (int i = 0; i < numBlocks; i++) {
-			List<String> block = new ArrayList<>();
-			int start = i * BLOCK_SIZE;
-			int end = Math.min(start + BLOCK_SIZE, files.length);
-			for (int j = start; j < end; j++) {
-				String text = readFile(files[j]); // читаємо документ
-				block.add(text);
+	public static int countHash_doc = 0;
+	public static HashMap<String, Integer> docID = new HashMap<>();
+
+	public static int fileName = 0;
+
+	public static void main(String[] args) throws IOException {
+		long startTime = System.currentTimeMillis();
+		long chunkSize = 20_000_000L; // read 20 MB at a time
+		long usedSize = 0;
+		String chunk = "";
+		String folderPath = "D:\\JavaFiles\\_IR\\PW5\\Texts\\temp";
+		List<File> files = listTxtFiles(new File(folderPath));
+
+		for (File file : files) {
+			docID.put(file.getAbsolutePath(), countHash_doc++);
+
+			if (usedSize + file.length() < chunkSize) {
+				System.out.println(file.getAbsolutePath());
+
+
+				chunk = readFile(file.getAbsolutePath());
+				usedSize += file.length();
+				System.out.println((double) usedSize / 1_000_000);
+				buildIndex(docID.get(file.getAbsolutePath()), chunk);
+			} else {
+				if (chunk != null) {
+					writeChunkInFile();
+					System.out.println("Document created!");
+					index = new TreeMap<>();
+					tempID = new ArrayList<>();
+					usedSize = 0;
+
+					// Зберегти проміжний файл
+					chunk = readFile(file.getAbsolutePath());
+					usedSize += file.length();
+					buildIndex(docID.get(file.getAbsolutePath()), chunk);
+				}
 			}
-			Map<String, List<Integer>> invertedIndex = buildInvertedIndex(block); // побудова інвертованого індексу
-			writeInvertedIndex(invertedIndex, TEMP_DIR + "block-" + i + ".txt"); // записуємо інвертований індекс у файл
 		}
 
-		// об'єднуємо інвертовані індекси
-		List<BufferedReader> readers = new ArrayList<>();
-		for (int i = 0; i < numBlocks; i++) {
-			BufferedReader reader = new BufferedReader(new FileReader(TEMP_DIR + "block-" + i + ".txt"));
-			readers.add(reader);
-		}
-		Map<String, List<Integer>> index = mergeInvertedIndexes(readers);
-		writeIndex(index, indexFile);
+		writeChunkInFile();
+		System.out.println("Document created!");
 
-		// видаляємо тимчасові файли
-		for (int i = 0; i < numBlocks; i++) {
-			File file = new File(TEMP_DIR + "block-" + i + ".txt");
-			file.delete();
+		long endTime = System.currentTimeMillis();
+		long totalTimeInSeconds = (endTime - startTime) / 1000;
+		System.out.println("Total time taken by the code for PART_1: " + totalTimeInSeconds + " seconds");
+
+		startTime = System.currentTimeMillis();
+		mergeIndex();
+
+		endTime = System.currentTimeMillis();
+		totalTimeInSeconds = (endTime - startTime) / 1000;
+		System.out.println("Total time taken by the code for PART_2: " + totalTimeInSeconds + " seconds");
+
+		writeDocumentsIdInFile();
+	}
+
+	private static void mergeIndex() throws IOException {
+		index = new TreeMap<>();
+		String folderPath = "D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate";
+		List<File> files = listTxtFiles(new File(folderPath));
+
+		for (File file : files) {
+			BufferedReader reader = new BufferedReader(new FileReader(file.getAbsolutePath()));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				tempID = new ArrayList<>();
+				String[] word_ids = line.split(":");
+				String[] ids = word_ids[1].split(",");
+
+
+				if (index.containsKey(word_ids[0])) {
+					tempID = index.get(word_ids[0]);
+
+					for (String id : ids) {
+						tempID.add(Integer.parseInt(id));
+					}
+
+					index.put(word_ids[0], tempID);
+					tempID = new ArrayList<>();
+				} else {
+					for (String id : ids) {
+						tempID.add(Integer.parseInt(id));
+					}
+
+					index.put(word_ids[0], tempID);
+					tempID = new ArrayList<>();
+				}
+			}
+			reader.close();
+		}
+
+		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\BigIndex.txt");
+		FileWriter fileInpPostingList = new FileWriter(fileInp);
+		for (String key : index.keySet()) {
+			int count = 1;
+			String tmp;
+			List<Integer> delete = index.get(key);
+			tmp = key + ":";
+			for (Integer b : delete) {
+				if (count++ == 1) {
+					tmp += b;
+					continue;
+				}
+				tmp += "," + b;
+			}
+			fileInpPostingList.write(tmp + "\n");
+		}
+		fileInpPostingList.close();
+
+	}
+
+	private static void writeChunkInFile() throws IOException {
+		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\" + fileName++ + ".txt");
+		FileWriter fileInpPostingList = new FileWriter(fileInp);
+
+		for (String key : index.keySet()) {
+			int count = 1;
+			String tmp;
+			List<Integer> delete = index.get(key);
+			tmp = key + ":";
+			for (Integer b : delete) {
+				if (count++ == 1) {
+					tmp += b;
+					continue;
+				}
+				tmp += "," + b;
+			}
+			fileInpPostingList.write(tmp + "\n");
+		}
+		fileInpPostingList.close();
+	}
+
+	private static void writeDocumentsIdInFile() throws IOException {
+		File fileInp = new File("D:\\JavaFiles\\_IR\\PW5\\Texts\\Separate\\" + "DocumentsID.txt");
+		FileWriter fileInpPostingList = new FileWriter(fileInp);
+
+		for (String key : docID.keySet()) {
+			int count = 1;
+			String tmp;
+			int delete = docID.get(key);
+			tmp = key + " = > " + delete;
+
+			fileInpPostingList.write(tmp + "\n");
+		}
+		fileInpPostingList.close();
+	}
+
+	private static void buildIndex(int idDoc, String chunk) {
+		String[] tmp = chunk.split("[^a-zA-Z]+");
+		System.out.println();
+
+		for (String word : tmp) {
+			word = word.toLowerCase();
+			if (word.equals(""))
+				continue;
+			if (index.containsKey(word)) {
+				tempID = index.get(word);
+				if (!tempID.contains(idDoc)) {
+					tempID.add(idDoc);
+					index.put(word, tempID);
+				} else {
+					tempID = new ArrayList<>();
+				}
+			} else {
+				tempID = new ArrayList<>();
+				tempID.add(idDoc);
+				index.put(word, tempID);
+			}
 		}
 	}
 
-	private String readFile(File file) throws IOException {
-		BufferedReader reader = new BufferedReader(new FileReader(file));
-		StringBuilder builder = new StringBuilder();
+	private static String readFile(String path) throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(path));
 		String line;
+		String res = "";
 		while ((line = reader.readLine()) != null) {
-			builder.append(line).append("\n");
+			res += line;
 		}
+
 		reader.close();
-		return builder.toString();
+		return res;
 	}
 
-	private Map<String, List<Integer>> buildInvertedIndex(List<String> documents) {
-		Map<String, List<Integer>> invertedIndex = new HashMap<>();
-		int docId = 0;
-		for (String document : documents) {
-			docId++;
-			String[] words = document.split("\\s+");
-			for (String word : words) {
-				List<Integer> docIds = invertedIndex.getOrDefault(word, new ArrayList<>());
-				docIds.add(docId);
-				invertedIndex.put(word, docIds);
+	private static List<File> listTxtFiles(File folder) {
+		List<File> files = new ArrayList<>();
+		for (File file : folder.listFiles()) {
+			if (file.isDirectory()) {
+				files.addAll(listTxtFiles(file));
+			} else if (file.getName().endsWith(".txt")) {
+				files.add(file);
 			}
 		}
-		return invertedIndex;
-	}
-
-	private void writeInvertedIndex(Map<String, List<Integer>> invertedIndex, String file) throws IOException {
-		BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-		for (Map.Entry<String, List<Integer>> entry : invertedIndex.entrySet()) {
-			writer.write(entry.getKey() + ":" + entry.getValue().toString() + "\n");
-		}
-		writer.close();
-	}
-
-	private Map<String, List<Integer>> mergeInvertedIndexes(List<BufferedReader> readers) throws IOException {
-		Map<String, List<Integer>> index = new HashMap<>();
-		PriorityQueue<WordPosting> pq = new PriorityQueue<>();
-		int docId = 0;
-		for (BufferedReader reader : readers) {
-			String line = reader.readLine();
-			if (line != null) {
-				String[] parts = line.split(":");
-				String word = parts[0];
-				List<Integer> docIds = parseDocIds(parts[1]);
-				WordPosting wp = new WordPosting(word, docIds, reader);
-				pq.offer(wp);
-			}
-		}
-		while (!pq.isEmpty()) {
-			WordPosting wp = pq.poll();
-			List<Integer> docIds = wp.getDocIds();
-			for (int i = 0; i < docIds.size(); i++) {
-				int id = docIds.get(i);
-				docId++;
-				List<Integer> postings = index.getOrDefault(wp.getWord(), new ArrayList<>());
-				postings.add(docId);
-				index.put(wp.getWord(), postings);
-			}
-			BufferedReader reader = wp.getReader();
-			String line = reader.readLine();
-			if (line != null) {
-				String[] parts = line.split(":");
-				String word = parts[0];
-				List<Integer> nextDocIds = parseDocIds(parts[1]);
-				WordPosting nextWp = new WordPosting(word, nextDocIds, reader);
-				pq.offer(nextWp);
-			}
-		}
-		return index;
-	}
-
-	private List<Integer> parseDocIds(String s) {
-		List<Integer> docIds = new ArrayList<>();
-		s = s.replace("[", "").replace("]", "").replace(",", "");
-		String[] parts = s.split("\\s+");
-		for (String part : parts) {
-			docIds.add(Integer.parseInt(part));
-		}
-		return docIds;
-	}
-
-	private void writeIndex(Map<String, List<Integer>> index, String file) throws IOException {
-		ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file));
-		oos.writeObject(index.keySet());
-		oos.close();
-	}
-
-	private class WordPosting implements Comparable<WordPosting> {
-		private String word;
-		private List<Integer> docIds;
-		private BufferedReader reader;
-
-		public WordPosting(String word, List<Integer> docIds, BufferedReader reader) {
-			this.word = word;
-			this.docIds = docIds;
-			this.reader = reader;
-		}
-
-		public String getWord() {
-			return word;
-		}
-
-		public List<Integer> getDocIds() {
-			return docIds;
-		}
-
-		public BufferedReader getReader() {
-			return reader;
-		}
-
-		@Override
-		public int compareTo(WordPosting other) {
-			return word.compareTo(other.getWord());
-		}
+		return files;
 	}
 }
